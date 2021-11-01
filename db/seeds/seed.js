@@ -37,11 +37,11 @@ const seed = async (data) => {
   await db.query(
     `CREATE TABLE comments
     (comment_id SERIAL PRIMARY KEY,
-      author VARCHAR(255),
+      author VARCHAR(255) NOT NULL,
       review_id INT REFERENCES reviews(review_id),
       votes INT DEFAULT 0,
       created_at DATE DEFAULT CURRENT_TIMESTAMP,
-      body TEXT)`
+      body TEXT NOT NULL)`
   );
 
   let queryString = format(

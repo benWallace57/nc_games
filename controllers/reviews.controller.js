@@ -15,8 +15,12 @@ exports.getReviewsByID = async (req, res, next) => {
 };
 
 exports.getReviews = async (req, res, next) => {
+  const sortBy = req.query.sort_by;
+  const order = req.query.order;
+  const category = req.query.category;
+
   try {
-    const reviews = await selectReviews();
+    const reviews = await selectReviews(sortBy, order, category);
     res.status(200).send({ reviews });
   } catch (err) {
     next(err);

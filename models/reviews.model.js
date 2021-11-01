@@ -1,10 +1,23 @@
 const format = require("pg-format");
 const db = require("../db/connection");
-const reviewsRouter = require("../routes/reviews.router");
 
-exports.selectReviews = async () => {
-  const queryString = format(
-    `SELECT 
+exports.selectReviews = async (
+  sortBy = "created_at",
+  order = "desc",
+  category = ""
+) => {
+  const validSorts = [
+    "owner",
+    "title",
+    "review_id",
+    "review_body",
+    "designer",
+    "review_img_url",
+    "created_at",
+    "votes",
+  ];
+  const validOrders = ["asc", "desc", "ASC", "DESC"];
+  let queryString = `SELECT 
         owner, 
         game_title AS title, 
         reviews.review_id, 
@@ -17,12 +30,21 @@ exports.selectReviews = async () => {
     FROM 
         reviews 
     LEFT JOIN 
-        comments on comments.review_id = reviews.review_id
-    GROUP BY 
-        reviews.review_id`
-  );
+        comments on comments.review_id = reviews.review_id  WHERE category LIKE $1 `;
 
-  const { rows } = await db.query(queryString);
+  if (!category) {
+    category = "%%";
+  } else category = "%" + category + "%";
+
+  if (!validSorts.includes(sortBy) || !validOrders.includes(order))
+    throw {
+      status: 400,
+      msg: "Bad Request: Invalid sorting options",
+    };
+
+  queryString += ` GROUP BY reviews.review_id ORDER BY ${sortBy} ${order};`;
+
+  const { rows } = await db.query(queryString, [category]);
 
   return rows;
 };
@@ -62,13 +84,18 @@ exports.selectReviewsByID = async (review_id) => {
 
 exports.updateReview = async (review_id, updateObject) => {
   const incAmount = updateObject.inc_votes;
+  if (!incAmount) {
+    throw {
+      status: 400,
+      msg: "Bad Request: invalid input",
+    };
+  }
 
   const queryString = format(
     `UPDATE reviews SET votes = (votes + %L) WHERE review_id = %L RETURNING *`,
     incAmount,
     review_id
   );
-  console.log(queryString, "QUERY STRING");
 
   const { rows } = await db.query(queryString);
   if (rows.length === 0) {

@@ -1,5 +1,5 @@
 exports.handleErrors = (res, err) => {
-  //   console.log(err);
+  console.log(err);
   if (err.status) {
     res.status(err.status).send({ msg: err.msg });
   } else if (err.code === "23502" || err.code === "23503") {
@@ -7,7 +7,7 @@ exports.handleErrors = (res, err) => {
       .status(400)
       .send({ msg: "At least one attribute has an invalid value" });
   } else if (err.code === "22P02") {
-    res.status(400).send({ msg: "Bad Request: Review ID is INVALID" });
+    res.status(400).send({ msg: "Bad Request: invalid input" });
   }
 };
 

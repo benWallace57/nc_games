@@ -3,6 +3,8 @@ const testData = require("../db/data/test-data/index.js");
 const seed = require("../db/seeds/seed.js");
 const request = require("supertest");
 const app = require("../app");
+const { NoticeMessage } = require("pg-protocol/dist/messages");
+const { string } = require("pg-format");
 require("jest-sorted");
 
 beforeEach(() => seed(testData));
@@ -55,16 +57,29 @@ describe("/reviews", () => {
             votes: expect.any(Number),
             comment_count: expect.any(Number),
           });
+          expect(body.reviews).toBeSortedBy("created_at", { descending: true });
         });
     });
-    // test("/api/reviews?sort_by=owner&&order=asc&&category=dexterity", () => {
-    //   return request(app)
-    //     .get("api/reviews?sort_by=owner&&order=asc&&category=dexterity")
-    //     .expect(200)
-    //     .then(({ body }) => {
-    //       expect(body.reviews).toBeSortedBy("owner", { descending: false });
-    //     });
-    // });
+
+    test("/api/reviews?sort_by=owner&&order=asc&&category=dexterity", () => {
+      return request(app)
+        .get("/api/reviews?sort_by=owner&&order=asc&&category=dexterity")
+        .expect(200)
+        .then(({ body }) => {
+          expect(body.reviews).toBeSortedBy("owner", { descending: false });
+          body.reviews.forEach((review) =>
+            expect(review.category).toBe("dexterity")
+          );
+        });
+    });
+    test("/api/reviews?sort_by=fish&&order=bird", () => {
+      return request(app)
+        .get("/api/reviews?sort_by=fish&&order=bird")
+        .expect(400)
+        .then(({ body }) => {
+          expect(body.msg).toEqual("Bad Request: Invalid sorting options");
+        });
+    });
 
     test("/api/reviews/:review_id should return single review", () => {
       return request(app)
@@ -102,9 +117,43 @@ describe("/reviews", () => {
         .expect(400)
         .then(({ body }) => {
           {
-            expect(body.msg).toEqual("Bad Request: Review ID is INVALID");
+            expect(body.msg).toEqual("Bad Request: invalid input");
           }
         });
+    });
+
+    describe("/reviews/:review_id/comments", () => {
+      test("/api/reviews/2/comments should return all comments from review", () => {
+        return request(app)
+          .get("/api/reviews/2/comments")
+          .expect(200)
+          .then(({ body }) => {
+            expect(body.comments.length).toBe(3);
+            expect(body.comments[0]).toMatchObject({
+              comment_id: expect.any(Number),
+              votes: expect.any(Number),
+              created_at: expect.any(String),
+              author: expect.any(String),
+              body: expect.any(String),
+            });
+          });
+      });
+      test("/api/reviews/200/comments ERROR INVALID ID", () => {
+        return request(app)
+          .get("/api/reviews/200/comments")
+          .expect(400)
+          .then(({ body }) => {
+            expect(body.msg).toBe("Bad Request: Review ID does not exist");
+          });
+      });
+      test("/api/reviews/1/comments No results", () => {
+        return request(app)
+          .get("/api/reviews/1/comments")
+          .expect(200)
+          .then(({ body }) => {
+            expect(body.msg).toBe("No Results");
+          });
+      });
     });
   });
   describe("PATCH", () => {
@@ -129,6 +178,72 @@ describe("/reviews", () => {
       expect(newVotes.body.reviews[0].votes).toEqual(
         oldVotes.body.reviews[0].votes - 10
       );
+    });
+    test("/api/reviews/:reviewID should handle invalid value", async () => {
+      const updateObj = { inc_votes: "twenty" };
+      const response = await request(app)
+        .patch("/api/reviews/2")
+        .send(updateObj)
+        .expect(400);
+      expect(response.body.msg).toBe("Bad Request: invalid input");
+    });
+    test("/api/reviews/:reviewID should handle invalid key", async () => {
+      const updateObj = { falseKey: 10 };
+      const response = await request(app)
+        .patch("/api/reviews/2")
+        .send(updateObj)
+        .expect(400);
+      expect(response.body.msg).toBe("Bad Request: invalid input");
+    });
+  });
+
+  describe("POST", () => {
+    test("/api/reviews/:review_id/comments", () => {
+      const newComment = { username: "Ben", body: "My new comment here" };
+      return request(app)
+        .post("/api/reviews/2/comments")
+        .send(newComment)
+        .expect(201)
+        .then(({ body }) => {
+          expect(body.comments[0]).toEqual({ comment_id: 7, ...newComment });
+        });
+    });
+    test("/api/reviews/:review_id/comments INVALID username", () => {
+      const newComment = { username: null, body: "My new comment here" };
+      return request(app)
+        .post("/api/reviews/2/comments")
+        .send(newComment)
+        .expect(400)
+        .then(({ body }) =>
+          expect(body.msg).toBe("At least one attribute has an invalid value")
+        );
+    });
+    test("/api/reviews/:review_id/comments INVALID BODY", () => {
+      const newComment = { username: "Ben", body: null };
+      return request(app)
+        .post("/api/reviews/2/comments")
+        .send(newComment)
+        .expect(400)
+        .then(({ body }) =>
+          expect(body.msg).toBe("At least one attribute has an invalid value")
+        );
+    });
+    test("/api/reviews/:review_id/comments mising username", () => {
+      const newComment = { body: "invalid test comment" };
+      return request(app)
+        .post("/api/reviews/2/comments")
+        .send(newComment)
+        .expect(400)
+        .then(({ body }) =>
+          expect(body.msg).toBe("At least one attribute has an invalid value")
+        );
+    });
+  });
+  describe("DELETE", () => {
+    test("/api/comments/:comment_id", async () => {
+      await request(app).delete("/api/comments/1").expect(204);
+      const err = await request(app).delete("/api/comments/1").expect(400);
+      expect(err.body.msg).toEqual("Bad Request: Invalid Comment ID");
     });
   });
 });
