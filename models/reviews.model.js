@@ -1,6 +1,5 @@
 const format = require("pg-format");
 const db = require("../db/connection");
-const reviewsRouter = require("../routes/reviews.router");
 
 exports.selectReviews = async (
   sortBy = "created_at",
