@@ -1,5 +1,6 @@
 const format = require("pg-format");
 const db = require("../db/connection");
+const reviewsRouter = require("../routes/reviews.router");
 
 exports.selectReviews = async (
   sortBy = "created_at",
@@ -109,6 +110,42 @@ exports.updateReview = async (review_id, updateObject) => {
   );
 
   const { rows } = await db.query(queryString);
+  if (rows.length === 0) {
+    throw {
+      status: 400,
+      msg: "Bad Request: Review ID does not exist",
+    };
+  }
+  return rows;
+};
+
+exports.insertReview = async (newReview) => {
+  const queryString = format(
+    `INSERT INTO reviews 
+  (game_title, game_designer, owner, review_img_url, review_body, category) VALUES (%L) RETURNING review_id`,
+    [
+      newReview.title,
+      newReview.designer,
+      newReview.owner,
+      newReview.review_img_url,
+      newReview.review_body,
+      newReview.category,
+    ]
+  );
+
+  const newReviewIDResponse = await db.query(queryString);
+  const rows = await this.selectReviewsByID(
+    newReviewIDResponse.rows[0].review_id
+  );
+  return rows;
+};
+
+exports.deleteReview = async (review_id) => {
+  const { rows } = await db.query(
+    `DELETE FROM reviews WHERE review_id = $1 RETURNING *`,
+    [review_id]
+  );
+
   if (rows.length === 0) {
     throw {
       status: 400,

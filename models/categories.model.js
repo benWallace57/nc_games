@@ -6,3 +6,14 @@ exports.selectCategories = async () => {
 
   return rows;
 };
+
+exports.insertCategory = async (newCategory) => {
+  const queryString = format(
+    `INSERT INTO categories (slug,description) VALUES (%L) RETURNING *`,
+    [newCategory.slug, newCategory.description]
+  );
+
+  const { rows } = await db.query(queryString);
+
+  return rows;
+};

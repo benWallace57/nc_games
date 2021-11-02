@@ -32,10 +32,55 @@ describe("/api", () => {
           });
       });
     });
+    describe("POST", () => {
+      test("/api/categories should accept new category", () => {
+        const newCategory = {
+          slug: "Abstract",
+          description:
+            "A game without a story or law, just colours and mechanics",
+        };
+        return request(app)
+          .post("/api/categories")
+          .send(newCategory)
+          .expect(201)
+          .then(({ body }) => {
+            expect(body.categories[0]).toEqual(newCategory);
+          });
+      });
+      test("/api/categories should reject invalid category", () => {
+        const newCategory = {
+          description:
+            "A game without a story or law, just colours and mechanics",
+        };
+        return request(app)
+          .post("/api/categories")
+          .send(newCategory)
+          .expect(400)
+          .then(({ body }) => {
+            expect(body.msg).toEqual(
+              "At least one attribute has an invalid value"
+            );
+          });
+      });
+      test("/api/categories should reject multiple of same category", async () => {
+        const newCategory = {
+          slug: "Duplicate Test",
+          description: "slug should be unique primary key",
+        };
+        await request(app)
+          .post("/api/categories")
+          .send(newCategory)
+          .expect(201);
+        await request(app)
+          .post("/api/categories")
+          .send(newCategory)
+          .expect(400);
+      });
+    });
   });
 
   describe("/reviews", () => {
-    describe.only("GET", () => {
+    describe("GET", () => {
       test("/api/reviews should return all reviews", () => {
         return request(app)
           .get("/api/reviews")
@@ -88,6 +133,71 @@ describe("/api", () => {
           .then(({ body }) => {
             expect(body.reviews.length).toEqual(3);
             expect(body.reviews[0].review_id).toBe(7);
+          });
+      });
+    });
+    describe("POST", () => {
+      test("/api/reviews should insert new review and return all info", () => {
+        const newReview = {
+          title: "New test review",
+          designer: "B",
+          owner: "philippaclaire9",
+          review_img_url:
+            "https://images.pexels.com/photos/163064/play-stone-network-networked-interactive-163064.jpeg",
+          review_body: "D",
+          category: "social deduction",
+        };
+        return request(app)
+          .post("/api/reviews")
+          .send(newReview)
+          .expect(201)
+          .then(({ body }) => {
+            expect(body.reviews[0]).toMatchObject({
+              ...newReview,
+              review_id: expect.any(Number),
+              votes: 0,
+              created_at: expect.any(String),
+              comment_count: 0,
+            });
+          });
+      });
+      test("/api/reviews should handle invalid user", () => {
+        const newReview = {
+          title: "New test review",
+          designer: "B",
+          owner: "b",
+          review_img_url:
+            "https://images.pexels.com/photos/163064/play-stone-network-networked-interactive-163064.jpeg",
+          review_body: "D",
+          category: "social deduction",
+        };
+        return request(app)
+          .post("/api/reviews")
+          .send(newReview)
+          .expect(400)
+          .then(({ body }) => {
+            expect(body.msg).toEqual(
+              "At least one attribute has an invalid value"
+            );
+          });
+      });
+      test("/api/reviews should handle missing title", () => {
+        const newReview = {
+          designer: "B",
+          owner: "philippaclaire9",
+          review_img_url:
+            "https://images.pexels.com/photos/163064/play-stone-network-networked-interactive-163064.jpeg",
+          review_body: "D",
+          category: "social deduction",
+        };
+        return request(app)
+          .post("/api/reviews")
+          .send(newReview)
+          .expect(400)
+          .then(({ body }) => {
+            expect(body.msg).toEqual(
+              "At least one attribute has an invalid value"
+            );
           });
       });
     });
@@ -174,6 +284,14 @@ describe("/api", () => {
           .send(updateObj)
           .expect(400);
         expect(response.body.msg).toBe("Bad Request: invalid input");
+      });
+    });
+    describe("DELETE", () => {
+      test("/api/reviews/:review_id should delete review", async () => {
+        const before = await request(app).get("/api/reviews/1").expect(200);
+        await request(app).delete("/api/reviews/1").expect(204);
+        const after = await request(app).delete("/api/reviews/1").expect(400);
+        expect(after.body.msg).toEqual("Bad Request: Review ID does not exist");
       });
     });
   });
