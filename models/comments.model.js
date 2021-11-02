@@ -2,12 +2,14 @@ const format = require("pg-format");
 const db = require("../db/connection");
 const { selectReviewsByID } = require("./reviews.model");
 
-exports.selectCommentsByReviewId = async (review_id) => {
+exports.selectCommentsByReviewId = async (review_id, limit = 10, page = 1) => {
   await selectReviewsByID(review_id);
 
   const queryString = format(
-    `SELECT comment_id, votes, created_at, author, body from comments WHERE review_id = %L`,
-    review_id
+    `SELECT comment_id, votes, created_at, author, body from comments WHERE review_id = %L LIMIT %L OFFSET %L`,
+    review_id,
+    limit,
+    limit * (page - 1)
   );
   const { rows } = await db.query(queryString);
 
@@ -35,6 +37,26 @@ exports.deleteComment = async (comment_id) => {
   const { rows } = await db.query(
     "DELETE FROM comments WHERE comment_id = $1 RETURNING *",
     [comment_id]
+  );
+  if (rows.length === 0)
+    throw {
+      status: 400,
+      msg: "Bad Request: Invalid Comment ID",
+    };
+  return rows;
+};
+
+exports.updateComments = async (updateObj, comment_id) => {
+  const incAmount = updateObj.inc_votes;
+  if (incAmount === undefined) {
+    throw {
+      status: 400,
+      msg: "Bad Request: invalid input",
+    };
+  }
+  const { rows } = await db.query(
+    "UPDATE comments SET votes = (votes + $1) WHERE comment_id = $2 RETURNING *",
+    [incAmount, comment_id]
   );
   if (rows.length === 0)
     throw {

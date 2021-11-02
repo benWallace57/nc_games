@@ -35,13 +35,13 @@ describe("/api", () => {
   });
 
   describe("/reviews", () => {
-    describe("GET", () => {
+    describe.only("GET", () => {
       test("/api/reviews should return all reviews", () => {
         return request(app)
           .get("/api/reviews")
           .expect(200)
           .then(({ body }) => {
-            expect(body.reviews.length).toBe(13);
+            expect(body.reviews.length).toBe(10);
             expect(body.reviews[0]).toMatchObject({
               owner: expect.any(String),
               title: expect.any(String),
@@ -57,6 +57,7 @@ describe("/api", () => {
             expect(body.reviews).toBeSortedBy("created_at", {
               descending: true,
             });
+            expect(body.totalCount).toEqual(13);
           });
       });
 
@@ -69,6 +70,7 @@ describe("/api", () => {
             body.reviews.forEach((review) =>
               expect(review.category).toBe("dexterity")
             );
+            expect(body.totalCount).toEqual(1);
           });
       });
       test("/api/reviews?sort_by=fish&&order=bird", () => {
@@ -77,6 +79,15 @@ describe("/api", () => {
           .expect(400)
           .then(({ body }) => {
             expect(body.msg).toEqual("Bad Request: Invalid sorting options");
+          });
+      });
+      test("/api/reviews?limit=5&&page=2", () => {
+        return request(app)
+          .get("/api/reviews?limit=3&&p=3&&sort_by=review_id&&order=asc")
+          .expect(200)
+          .then(({ body }) => {
+            expect(body.reviews.length).toEqual(3);
+            expect(body.reviews[0].review_id).toBe(7);
           });
       });
     });
@@ -200,6 +211,15 @@ describe("/api", () => {
             expect(body.msg).toBe("No Results");
           });
       });
+
+      test("/api/reviews/1/comments pagination", () => {
+        return request(app)
+          .get("/api/reviews/2/comments?limit=1&&p=2")
+          .expect(200)
+          .then(({ body }) => {
+            expect(body.comments[0].body).toEqual("EPIC board game!");
+          });
+      });
     });
     describe("POST", () => {
       test("/api/reviews/:review_id/comments", () => {
@@ -258,6 +278,47 @@ describe("/api", () => {
         expect(err.body.msg).toEqual("Bad Request: invalid input");
       });
     });
+    describe("PATCH", () => {
+      test("/api/comments/:comment_id should allow update of comment votes", async () => {
+        const oldIncObj = { inc_votes: 0 };
+        const newIncObj = { inc_votes: 10 };
+        const oldComment = await request(app)
+          .patch("/api/comments/1")
+          .send(oldIncObj)
+          .expect(200);
+        const newComment = await request(app)
+          .patch("/api/comments/1")
+          .send(newIncObj)
+          .expect(200);
+
+        expect(oldComment.body.comments[0].votes).toEqual(
+          newComment.body.comments[0].votes - 10
+        );
+      });
+      test("/api/comments/:comment_id should handle errors", async () => {
+        const incObj = { inc_votes: 0 };
+
+        return request(app)
+          .patch("/api/comments/100")
+          .send(incObj)
+          .expect(400)
+          .then(({ body }) => {
+            expect(body.msg).toEqual("Bad Request: Invalid Comment ID");
+          });
+      });
+
+      test("/api/comments/:comment_id should handle object errors", async () => {
+        const incObj = { wrongKey: 10 };
+
+        return request(app)
+          .patch("/api/comments/1")
+          .send(incObj)
+          .expect(400)
+          .then(({ body }) => {
+            expect(body.msg).toEqual("Bad Request: invalid input");
+          });
+      });
+    });
   });
 
   describe("/api", () => {
@@ -304,6 +365,50 @@ describe("/api", () => {
             },
           });
         });
+    });
+  });
+
+  describe("/api/users", () => {
+    describe("GET", () => {
+      test("/api/users should return an array of user objects", () => {
+        return request(app)
+          .get("/api/users")
+          .expect(200)
+          .then(({ body }) => {
+            expect(body.users.length).toEqual(4);
+            expect(body.users[0]).toMatchObject({
+              username: expect.any(String),
+            });
+          });
+      });
+    });
+  });
+
+  describe("/api/users/:username", () => {
+    describe("GET", () => {
+      test("/api/users/:username should return single user object", () => {
+        const expectedUser = {
+          username: "mallionaire",
+          name: "haz",
+          avatar_url:
+            "https://www.healthytherapies.com/wp-content/uploads/2016/06/Lime3.jpg",
+        };
+        return request(app)
+          .get("/api/users/mallionaire")
+          .expect(200)
+          .then(({ body }) => {
+            expect(body.users.length).toEqual(1);
+            expect(body.users[0]).toEqual(expectedUser);
+          });
+      });
+      test("/api/users/:username should return single user object", () => {
+        return request(app)
+          .get("/api/users/fakeUser")
+          .expect(400)
+          .then(({ body }) => {
+            expect(body.msg).toBe("Bad Request: Username does not exist");
+          });
+      });
     });
   });
 });

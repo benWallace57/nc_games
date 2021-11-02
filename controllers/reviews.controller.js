@@ -18,10 +18,18 @@ exports.getReviews = async (req, res, next) => {
   const sortBy = req.query.sort_by;
   const order = req.query.order;
   const category = req.query.category;
+  const page = req.query.p;
+  const limit = req.query.limit;
 
   try {
-    const reviews = await selectReviews(sortBy, order, category);
-    res.status(200).send({ reviews });
+    const { rows, totalCount } = await selectReviews(
+      sortBy,
+      order,
+      category,
+      page,
+      limit
+    );
+    res.status(200).send({ reviews: rows, totalCount: totalCount });
   } catch (err) {
     next(err);
   }

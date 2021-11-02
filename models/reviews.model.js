@@ -4,7 +4,9 @@ const db = require("../db/connection");
 exports.selectReviews = async (
   sortBy = "created_at",
   order = "desc",
-  category = ""
+  category = "",
+  page = 1,
+  limit = 10
 ) => {
   const validSorts = [
     "owner",
@@ -17,6 +19,13 @@ exports.selectReviews = async (
     "votes",
   ];
   const validOrders = ["asc", "desc", "ASC", "DESC"];
+
+  if (!validSorts.includes(sortBy) || !validOrders.includes(order))
+    throw {
+      status: 400,
+      msg: "Bad Request: Invalid sorting options",
+    };
+
   let queryString = `SELECT 
         owner, 
         game_title AS title, 
@@ -30,23 +39,25 @@ exports.selectReviews = async (
     FROM 
         reviews 
     LEFT JOIN 
-        comments on comments.review_id = reviews.review_id  WHERE category LIKE $1 `;
+        comments on comments.review_id = reviews.review_id  WHERE category LIKE $1 
+    GROUP BY reviews.review_id 
+    ORDER BY ${sortBy} ${order}`;
+
+  const queryStringWithPagination = format(
+    queryString + ` LIMIT %L OFFSET %L`,
+    limit,
+    limit * (page - 1)
+  );
 
   if (!category) {
     category = "%%";
   } else category = "%" + category + "%";
 
-  if (!validSorts.includes(sortBy) || !validOrders.includes(order))
-    throw {
-      status: 400,
-      msg: "Bad Request: Invalid sorting options",
-    };
+  const totalCount = await db.query(queryString, [category]);
 
-  queryString += ` GROUP BY reviews.review_id ORDER BY ${sortBy} ${order};`;
+  const { rows } = await db.query(queryStringWithPagination, [category]);
 
-  const { rows } = await db.query(queryString, [category]);
-
-  return rows;
+  return { rows: rows, totalCount: totalCount.rows.length };
 };
 
 exports.selectReviewsByID = async (review_id) => {
