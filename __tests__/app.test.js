@@ -341,7 +341,10 @@ describe("/api", () => {
     });
     describe("POST", () => {
       test("/api/reviews/:review_id/comments", () => {
-        const newComment = { username: "Ben", body: "My new comment here" };
+        const newComment = {
+          username: "bainesface",
+          body: "My new comment here",
+        };
         return request(app)
           .post("/api/reviews/2/comments")
           .send(newComment)
