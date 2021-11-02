@@ -33,17 +33,27 @@ The job of `index.js` in each the data folders is to export out all the data fro
 _This is a summary of all the endpoints. More detail about each endpoint is further down this document._
 
 ```http
+GET /api
+
 GET /api/categories
+POST /api/categories
+
+GET /api/reviews
+POST /api/reviews
+
 GET /api/reviews/:review_id
 PATCH /api/reviews/:review_id
-GET /api/reviews
+DELETE /api/reviews/:review_id
+
 GET /api/reviews/:review_id/comments
 POST /api/reviews/:review_id/comments
+
+
 DELETE /api/comments/:comment_id
-GET /api
+PATCH /api/comments/:comment_id
+
 GET /api/users
 GET /api/users/:username
-PATCH /api/comments/:comment_id
 ```
 
 ---
